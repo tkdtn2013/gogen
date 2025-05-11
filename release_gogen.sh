@@ -26,7 +26,6 @@ echo "✅ SHA256: $SHA"
 
 # remove build file
 rm -f gogen
-rm -f $TAR_NAME
 echo "✅ remove file"
 
 echo "📝 Creating Formula..."
