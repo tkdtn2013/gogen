@@ -138,6 +138,7 @@ import (
         "github.com/gin-gonic/gin"
         "github.com/swaggo/files"
         "github.com/swaggo/gin-swagger"
+        "os"
         "{{.}}/internal/common"
         "{{.}}/internal/domain"
         "{{.}}/internal/handler"
@@ -164,9 +165,15 @@ func main() {
 	r.PUT("/users/:id", handler.UpdateUser)
 	r.DELETE("/users/:id", handler.DeleteUser)
 
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+        r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	r.Run(":8080")
+        cert := os.Getenv("SSL_CERT_FILE")
+        key := os.Getenv("SSL_KEY_FILE")
+        if cert != "" && key != "" {
+                r.RunTLS(":8080", cert, key)
+        } else {
+                r.Run(":8080")
+        }
 }
 `
 
