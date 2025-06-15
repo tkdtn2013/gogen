@@ -62,9 +62,11 @@ var createCmd = &cobra.Command{
 go 1.20
 
 require (
-	github.com/gin-gonic/gin v1.10.0
-	github.com/swaggo/files v1.0.1
-	github.com/swaggo/gin-swagger v1.6.0
+       github.com/gin-gonic/gin v1.10.0
+       github.com/swaggo/files v1.0.1
+       github.com/swaggo/gin-swagger v1.6.0
+       gorm.io/gorm v1.25.6
+       gorm.io/driver/mysql v1.5.2
 )
 `, projectName)
 		goModPath := filepath.Join(projectName, "go.mod")
@@ -77,6 +79,10 @@ require (
 		// errors.go
 		errorsPath := filepath.Join(projectName, "internal", "common", "errors.go")
 		os.WriteFile(errorsPath, []byte(errorsCode), 0644)
+
+		// db.go
+		dbPath := filepath.Join(projectName, "internal", "common", "db.go")
+		os.WriteFile(dbPath, []byte(dbCode), 0644)
 
 		// handler/user_handler.go
 		handlerPath := filepath.Join(projectName, "internal", "handler", "user_handler.go")
@@ -109,6 +115,8 @@ require (
 		runCmd("swag", "init", "-g", "cmd/main.go")
 		runCmd("go", "get", "-u", "github.com/swaggo/gin-swagger")
 		runCmd("go", "get", "-u", "github.com/swaggo/files")
+		runCmd("go", "get", "-u", "gorm.io/gorm")
+		runCmd("go", "get", "-u", "gorm.io/driver/mysql")
 		runCmd("go", "mod", "tidy")
 
 		fmt.Println("✅ Project created successfully.")
@@ -127,11 +135,13 @@ func init() {
 var mainTemplate = `package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/swaggo/files"
-	"github.com/swaggo/gin-swagger"
-	"{{.}}/internal/handler"
-	_ "{{.}}/docs"
+        "github.com/gin-gonic/gin"
+        "github.com/swaggo/files"
+        "github.com/swaggo/gin-swagger"
+        "{{.}}/internal/common"
+        "{{.}}/internal/domain"
+        "{{.}}/internal/handler"
+        _ "{{.}}/docs"
 )
 
 // @title {{.}} API
@@ -140,7 +150,14 @@ import (
 // @host localhost:8080
 // @BasePath /
 func main() {
-	r := gin.Default()
+        if err := common.InitDB(); err != nil {
+                panic(err)
+        }
+
+        // Auto migrate domain models
+        common.DB.AutoMigrate(&domain.User{})
+
+        r := gin.Default()
 
 	r.GET("/users", handler.GetUsers)
 	r.POST("/users", handler.CreateUser)
@@ -231,18 +248,20 @@ func DeleteUser(c *gin.Context) {
 
 var serviceTemplate = `package service
 
-import "{{.}}/internal/domain"
+import (
+        "{{.}}/internal/common"
+        "{{.}}/internal/domain"
+)
 
 func GetUsers() []domain.User {
-	return []domain.User{
-		{ID: 1, Name: "Alice", Email: "alice@example.com"},
-		{ID: 2, Name: "Bob", Email: "bob@example.com"},
-	}
+        var users []domain.User
+        common.DB.Find(&users)
+        return users
 }
 
 func CreateUser(u domain.User) domain.User {
-	u.ID = 3
-	return u
+        common.DB.Create(&u)
+        return u
 }
 `
 
@@ -295,4 +314,26 @@ var (
 	ErrNotFound     = errors.New("not found")
 	ErrServer       = errors.New("internal server error")
 )
+`
+
+var dbCode = `package common
+
+import (
+        "os"
+
+        "gorm.io/driver/mysql"
+        "gorm.io/gorm"
+)
+
+var DB *gorm.DB
+
+func InitDB() error {
+        dsn := os.Getenv("DB_DSN")
+        if dsn == "" {
+                dsn = "user:password@tcp(localhost:3306)/app?charset=utf8mb4&parseTime=True&loc=Local"
+        }
+        var err error
+        DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+        return err
+}
 `
