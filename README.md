@@ -11,6 +11,12 @@ Features:
 
 ```bash
 gogen create myapp
+cd myapp
+export DB_DSN="user:password@tcp(localhost:3306)/app?charset=utf8mb4&parseTime=True&loc=Local"
+export SSL_CERT_FILE=/path/to/server.crt
+export SSL_KEY_FILE=/path/to/server.key
+go run cmd/main.go
+
 ```
 
 The generated project will include Swagger and database setup. Provide the MariaDB connection string via the `DB_DSN` environment variable. If not set, a default DSN connecting to `localhost:3306` will be used.
